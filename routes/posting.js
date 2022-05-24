@@ -39,6 +39,30 @@ router.get("/postings/:username",async (req,res)=>{
         
     res.json(temp3);    
 });
+/////////////////////////////////////////////////////////////////
+router.put("/postings/:postId", async(req,res)=>{
+    const {postId} = req.params;   
+    const {username,passwords,title,content} = req.body;
+
+    const temp = await Postings.find({postId:Number(postId)});
+    //console.log(temp);
+    if(!temp.length){
+      return res.status(400).json({
+          errorMessage: "해당 글을 찾을 수 없습니다.",
+      });     
+    }
+    // console.log(temp);
+    // console.log(temp[username],username);
+    // console.log(temp[0].passwords,passwords);
+    if((temp[0].username ===username)&&(temp[0].passwords===passwords)){
+        console.log("in");
+        await Postings.updateOne({postId:Number(postId)},{$set:{title,content}});
+    }; 
+      
+    res.json({success: true});
+  });
+  ////////////////////////////////////////////////////////////////////////////
+
 //게시글 작성 API    
 router.post("/postings", async (req,res) => {
     const {username,passwords,title,content} = req.body;
