@@ -1,8 +1,10 @@
 const express = require("express");
 const Users = require("../schemas/users");
-const Postings = require("../schemas/postings");  //==================
+const Postings = require("../schemas/postings");  
 const router = express.Router();
 
+let missingPole=null;
+let flag = false;
 
 router.get("/",(req,res)=>{
     res.send("this is root page");
@@ -39,7 +41,7 @@ router.get("/postings/:username",async (req,res)=>{
         
     res.json(temp3);    
 });
-/////////////////////////////////////////////////////////////////
+// 글 수정 api
 router.put("/postings/:postId", async(req,res)=>{
     const {postId} = req.params;   
     const {username,passwords,title,content} = req.body;
@@ -47,58 +49,93 @@ router.put("/postings/:postId", async(req,res)=>{
     const temp = await Postings.find({postId:Number(postId)});
     //console.log(temp);
     if(!temp.length){
-      return res.status(400).json({
-          errorMessage: "해당 글을 찾을 수 없습니다.",
-      });     
+      return res
+      .status(400)
+      .json({errorMessage: "해당 글을 찾을 수 없습니다."});     
     }
     // console.log(temp);
     // console.log(temp[username],username);
     // console.log(temp[0].passwords,passwords);
     if((temp[0].username ===username)&&(temp[0].passwords===passwords)){
-        console.log("in");
+        
         await Postings.updateOne({postId:Number(postId)},{$set:{title,content}});
-    }; 
-      
-    res.json({success: true});
+        res.json({success: true});
+    }
+    else{
+       return res
+        .status(400)
+        .json({ errorMessage: "작성자 정보가 일치하지 않습니다."});
+    }     
   });
-  ////////////////////////////////////////////////////////////////////////////
+  
+  router.delete("/postings/:postId", async(req,res)=>{
+    const {postId} = req.params;
+    const {username,passwords} = req.body;
+   
+    const existPosting = await Postings.find({postId:Number(postId)});
+    
+    if(existPosting.length){
+        if((existPosting[0].username ===username)&&(existPosting[0].passwords===passwords)){
+            await Postings.deleteOne({postId:Number(postId)});
+            missingPole = postId;  //중간에 빠진 포스트 자리 저장
+            flag = true;  //삭제 flag를 올려줌
+            res.json({success: true});
+        }
+        else{
+            return res
+            .status(400)
+            .json({ errorMessage: "작성자 정보가 일치하지 않습니다."});
+        }      
+    }
+    else{
+        return res
+            .status(400)
+            .json({ errorMessage: "해당 글을 찾을 수 없습니다."});
+    }
+   
+     
+  });
+
 
 //게시글 작성 API    
 router.post("/postings", async (req,res) => {
+
     const {username,passwords,title,content} = req.body;
     const users = await Users.find({username});
     
     const pos = await Postings.find();
 
-    //console.log(pos.length,users.length,users);
+   
 
-    if(users.length){  //존재하는 사용자면 
-        const createdData = await Postings.create({postId:pos.length+1,username,passwords,title,content,time:new Date()});
-       
+    if(users.length){  //존재하는 사용자면 그냥 글 포스팅만 존재하지 않는 사용자면 User 목록에도 
+        if(flag){
+            const createdData = await Postings.create({postId:missingPole,username,passwords,title,content,time:new Date()});
+            flag = false;
+        }
+        else{
+            const createdData = await Postings.create({postId:pos.length+1,username,passwords,title,content,time:new Date()});
+        }
+        
+                 
     }
     else{
-        const createdData = await Postings.create({postId:pos.length+1,username,passwords,title,content,time:new Date()});
-       await Users.create({username,passwords});
+
+        if(flag){
+            const createdData = await Postings.create({postId:missingPole,username,passwords,title,content,time:new Date()});
+            flag = false;
+        }
+        else{
+            const createdData = await Postings.create({postId:pos.length+1,username,passwords,title,content,time:new Date()});
+        }
+
+        await Users.create({username,passwords});
     }
 
-    /*
-    const postings = await Postings.find({authorId});
-    
-
-    if(postings.length){
-        return res.status(400).json({success:false, errorMessage: "이미 있는 데이터입니다."});
-    }
-    */
-    //const realtime = new Date();
       
     res.send("success"    );
-    //res.json({postings: createdData});
+    
     
 });
-
-
-
-
 
 router.get("/posting", (req,res) =>{
     res.send("this is posting page");
